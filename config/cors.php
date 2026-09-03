@@ -19,7 +19,10 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://localhost:5173'], // Port React kamu
+    'allowed_origins' =>
+        ['http://localhost:5173',
+        'https://otdr-infranexia.vercel.app'
+    ], // Port React kamu
 
     'allowed_origins_patterns' => [],
 
