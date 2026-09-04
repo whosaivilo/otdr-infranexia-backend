@@ -15,17 +15,26 @@ class OtdrController extends Controller
             'file' => 'required|mimes:xlsx,xls|max:10240', // Max 10MB
         ]);
 
-        // 2. Simpan file sementara di folder storage/app/public/otdr
-        // Tambahkan 'public' agar Laravel 11 tahu kita menyimpannya di disk public
-        $path = $request->file('file')->store('otdr', 'public');
-        $fullPath = storage_path('app/public/' . $path);
+        // 2. Simpan file input mentah di storage/app/public/otdr/raw
+        $path = $request->file('file')->store('otdr/raw', 'public');
+        $fullInputPath = storage_path('app/public/' . $path);
 
-        // 3. Panggil script Python untuk mengolah file Excel
+        // 3. Siapkan lokasi dan nama untuk file Output (hasil konversi)
+        $outFileName = 'Hasil_OTDR_' . time() . '.xlsx';
+        $outRelativePath = 'otdr/hasil/' . $outFileName;
+        $fullOutputPath = storage_path('app/public/' . $outRelativePath);
+
+        // Pastikan folder hasil ada
+        if (!file_exists(storage_path('app/public/otdr/hasil'))) {
+            mkdir(storage_path('app/public/otdr/hasil'), 0755, true);
+        }
+
+        // 4. Panggil script Python untuk mengolah file Excel
         // File Python ada di root project (sejajar .env)
         $scriptPath = base_path('otdr_converter.py');
 
-// Catatan: Jika di Windows perintah 'python3' tidak dikenali, ganti menjadi 'python'
-        $result = Process::run("python3 \"{$scriptPath}\" \"{$fullPath}\"");
+        // Catatan: Jika di Windows perintah 'python3' tidak dikenali, ganti menjadi 'python'
+        $result = Process::run("python3 \"{$scriptPath}\" \"{$fullInputPath}\" \"{$fullOutputPath}\"");
 
         $outputString = $result->output();
         $errorString  = $result->errorOutput();
@@ -34,12 +43,11 @@ class OtdrController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memproses file dengan Python.',
-                // Tangkap error dari stderr maupun stdout
                 'error'   => $errorString ?: $outputString,
             ], 500);
         }
 
-        // 4. Tangkap hasil dari Python (berupa teks JSON) dan ubah jadi Array PHP
+        // 5. Tangkap hasil dari Python (berupa teks JSON) dan ubah jadi Array PHP
         $output = json_decode($outputString, true);
 
         // Cek error dari Python
@@ -51,7 +59,7 @@ class OtdrController extends Controller
             ], 500);
         }
 
-        // 5. Simpan hasil kalkulasi ke database MySQL
+        // 6. Simpan hasil kalkulasi ke database MySQL
         // Hanya simpan data per baris (rows), bukan summary
         if (isset($output['rows']) && is_array($output['rows'])) {
             foreach ($output['rows'] as $row) {
@@ -74,10 +82,12 @@ class OtdrController extends Controller
             }
         }
 
+        // 7. Kembalikan respons dengan URL download file hasil
         return response()->json([
-            'success' => true,
-            'message' => 'Kalkulasi OTDR Selesai',
-            'data'    => $output,
+            'success'      => true,
+            'message'      => 'Kalkulasi OTDR Selesai',
+            'data'         => $output,
+            'download_url' => asset('storage/' . $outRelativePath), // URL untuk mengunduh file Excel hasil
         ], 200);
     }
 
