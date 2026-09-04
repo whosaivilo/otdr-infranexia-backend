@@ -24,7 +24,7 @@ class OtdrController extends Controller
         $scriptPath = base_path('otdr_converter.py');
 
         // Catatan: Jika di Windows perintah 'python3' tidak dikenali, ganti menjadi 'python'
-        $result = Process::run("python \"{$scriptPath}\" \"{$fullPath}\"");
+        $result = Process::run("python3 \"{$scriptPath}\" \"{$fullPath}\"");
 
         if ($result->failed()) {
             return response()->json([
