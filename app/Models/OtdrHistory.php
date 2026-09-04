@@ -19,5 +19,25 @@ class OtdrHistory extends Model
         'total_nilai_bending',
         'estimasi_rx_onu',
         'redaman_per_core',
+        'loss',
+        'threshold',
+        'fiber',
+        'wavelength',
+        'loss_db',
+        'length_km',
+        'attenuation',
+    ];
+
+    protected $casts = [
+        'jumlah_titik_putus' => 'integer',
+        'jumlah_bending' => 'integer',
+        'total_nilai_bending' => 'float',
+        'estimasi_rx_onu' => 'float',
+        'redaman_per_core' => 'float',
+        'loss' => 'float',
+        'threshold' => 'float',
+        'loss_db' => 'float',
+        'length_km' => 'float',
+        'attenuation' => 'float',
     ];
 }

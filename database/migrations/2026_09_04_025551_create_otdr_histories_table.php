@@ -17,6 +17,13 @@ return new class extends Migration
             $table->float('total_nilai_bending', 8, 4)->default(0);
             $table->float('estimasi_rx_onu', 8, 3)->default(0);
             $table->float('redaman_per_core', 8, 3)->default(0);
+            $table->float('loss', 8, 3)->default(0);
+            $table->float('threshold', 8, 3)->default(7.061);
+            $table->string('fiber')->nullable();
+            $table->string('wavelength')->nullable();
+            $table->float('loss_db', 8, 3)->default(0);
+            $table->float('length_km', 8, 4)->default(0);
+            $table->float('attenuation', 8, 3)->default(0);
             $table->timestamps();
         });
     }

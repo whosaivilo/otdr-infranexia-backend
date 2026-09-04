@@ -21,6 +21,7 @@ class OtdrController extends Controller
         $fullPath = storage_path('app/' . $path);
 
         // 3. Panggil script Python untuk mengolah file Excel
+        // File Python ada di root project (sejajar .env)
         $scriptPath = base_path('otdr_converter.py');
 
         // Catatan: Jika di Windows perintah 'python3' tidak dikenali, ganti menjadi 'python'
@@ -37,11 +38,35 @@ class OtdrController extends Controller
         // 4. Tangkap hasil dari Python (berupa teks JSON) dan ubah jadi Array PHP
         $output = json_decode($result->output(), true);
 
+        // Cek error dari Python
+        if (isset($output['error'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Python mengembalikan error.',
+                'error' => $output['error']
+            ], 500);
+        }
+
         // 5. Simpan hasil kalkulasi ke database MySQL
-        if (is_array($output)) {
-            foreach ($output as $row) {
-                // Pastikan key dari Python sama dengan nama kolom di database
-                OtdrHistory::create($row);
+        // Hanya simpan data per baris (rows), bukan summary
+        if (isset($output['rows']) && is_array($output['rows'])) {
+            foreach ($output['rows'] as $row) {
+                OtdrHistory::create([
+                    'filename' => $row['filename'],
+                    'odc' => $output['odc'] ?? ($row['odc'] ?? null),
+                    'jumlah_titik_putus' => $row['jumlah_titik_putus'] ?? 0,
+                    'jumlah_bending' => $row['jumlah_bending'] ?? 0,
+                    'total_nilai_bending' => $row['total_nilai_bending'] ?? 0,
+                    'estimasi_rx_onu' => $row['estimasi_rx_onu'] ?? 0,
+                    'redaman_per_core' => $row['redaman_core'] ?? 0,
+                    'loss' => $row['loss'] ?? 0,
+                    'threshold' => $row['threshold'] ?? 7.0614781398215,
+                    'fiber' => $row['fiber'] ?? null,
+                    'wavelength' => $row['wavelength'] ?? null,
+                    'loss_db' => $row['loss_db'] ?? 0,
+                    'length_km' => $row['length_km'] ?? 0,
+                    'attenuation' => $row['attenuation'] ?? 0,
+                ]);
             }
         }
 
