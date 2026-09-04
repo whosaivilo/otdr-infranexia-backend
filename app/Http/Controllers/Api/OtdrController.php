@@ -16,8 +16,9 @@ class OtdrController extends Controller
         ]);
 
         // 2. Simpan file sementara di folder storage/app/public/otdr
-        $path     = $request->file('file')->store('public/otdr');
-        $fullPath = storage_path('app/' . $path);
+        // Tambahkan 'public' agar Laravel 11 tahu kita menyimpannya di disk public
+        $path = $request->file('file')->store('otdr', 'public');
+        $fullPath = storage_path('app/public/' . $path);
 
         // 3. Panggil script Python untuk mengolah file Excel
         // File Python ada di root project (sejajar .env)
