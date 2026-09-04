@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 # === KONSTANTA & KAMUS DATA ===
 RX_ONU_BASE = -16.0
 DEFAULT_ODC = "ODC DUM FH"
-THRESHOLD_VALUE = 7.0614781398215
+DEFAULT_THRESHOLD = 7.0614781398215  # <--- PERBAIKAN DI SINI (sebelumnya THRESHOLD_VALUE)
 
 CABLE_INFO = { 14: "kabel 264", 17: "150m", 18: "kabel 264", 24: "150m", 25: "kabel 264", 34: "TITIK" }
 REPAIR_INFO = { 12: "TITIK REPAIR", 17: "TITIK REPAIR", 24: "TITIK REPAIR", 32: "TITIK REPAIR", 34: "ODC" }
@@ -130,7 +130,7 @@ def create_formatted_excel(output_path, raw_data, summary, threshold):
     for col, val in PROJECT_ROW4.items():
         cell = ws.cell(row=4, column=col, value=val)
         cell.font, cell.alignment = FONT_HEADER_BLACK, LEFT_ALIGN
-        if val == "TOTAL NILAI BENDING":  # PERBAIKAN TYPO DI SINI
+        if val == "TOTAL NILAI BENDING":
             cell.fill, cell.font = FILL_BLACK, FONT_HEADER_WHITE
 
     for col, val in CABLE_INFO.items():
