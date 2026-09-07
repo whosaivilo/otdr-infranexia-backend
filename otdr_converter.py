@@ -23,8 +23,8 @@ FONT_AR_20_BOLD = Font(name="Arial", size=20, bold=True)
 FONT_AR_36_BOLD = Font(name="Arial", size=36, bold=True)
 
 FILL_BLACK = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
-FILL_RED = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")       # Merah Tua Pekat
-FILL_YELLOW = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")    # Kuning Emas
+FILL_RED = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")
+FILL_YELLOW = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
 FILL_HEADER_GRAY = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
 
 def safe_float(val, default=0.0):
@@ -48,8 +48,7 @@ def read_input_file(filepath):
     wb = load_workbook(filepath, data_only=True)
     ws = wb.active
 
-    # 1. PENCARI BARIS HEADER AMAN
-    dist_row = 7 # Default
+    dist_row = 7
     for r in range(1, 15):
         val = ws.cell(row=r, column=2).value
         if val and str(val).strip().lower() == "file":
@@ -59,13 +58,12 @@ def read_input_file(filepath):
     date_val = ws.cell(row=max(1, dist_row - 2), column=2).value
     date_str = str(date_val).strip() if date_val else datetime.now().strftime("%m/%d/%Y %H:%M:%S")
 
-    # 2. BACA HEADER JARAK (Pengecekan ganda di baris dist_row atau baris 5)
     distance_headers = []
     col_idx = 8
     while True:
         val = ws.cell(row=dist_row, column=col_idx).value
         if val is None or str(val).strip() == "":
-            val = ws.cell(row=5, column=col_idx).value # Fallback
+            val = ws.cell(row=5, column=col_idx).value
 
         if val is None or str(val).strip() == "":
             break
@@ -76,7 +74,6 @@ def read_input_file(filepath):
             pass
         col_idx += 1
 
-    # 3. BACA DATA INTI
     rows_data = []
     row_idx = dist_row + 1
     while True:
@@ -117,8 +114,6 @@ def create_formatted_excel(output_path, raw_data, threshold):
     last_row_index = 7 + total_data_rows if total_data_rows > 0 else 8
 
     # === 1. TULIS HEADER ATAS DENGAN INJEKSI RUMUS EXCEL ===
-
-    # Baris 1: JUMLAH TITIK PUTUS
     c_tp = ws.cell(row=1, column=9, value="JUMLAH TITIK PUTUS")
     c_tp.font, c_tp.fill, c_tp.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
     for d_idx in range(len(raw_data["distance_headers"])):
@@ -126,7 +121,6 @@ def create_formatted_excel(output_path, raw_data, threshold):
         vc = ws.cell(row=1, column=10 + d_idx, value=f'=COUNTIF({col_letter}8:{col_letter}{last_row_index}, "end")')
         vc.font, vc.alignment = FONT_AR, CENTER_ALIGN
 
-    # Baris 2: JUMLAH BENDING & TIPUS
     c_jb = ws.cell(row=2, column=9, value="JUMLAH BENDING & TIPUS")
     c_jb.font, c_jb.fill, c_jb.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
     for d_idx in range(len(raw_data["distance_headers"])):
@@ -136,7 +130,6 @@ def create_formatted_excel(output_path, raw_data, threshold):
         if (10 + d_idx) in [17, 24]:
             vc.font = FONT_AR_20_BOLD
 
-    # Baris 3: TOTAL NILAI BENDING
     ws.cell(row=3, column=4, value="kabel 264").font = FONT_AR
     c_tn = ws.cell(row=3, column=9, value="TOTAL NILAI BENDING")
     c_tn.font, c_tn.fill, c_tn.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
@@ -145,7 +138,7 @@ def create_formatted_excel(output_path, raw_data, threshold):
         vc = ws.cell(row=3, column=10 + d_idx, value=f'=SUMIF({col_letter}7:{col_letter}{last_row_index}, "<>end")')
         vc.font, vc.alignment = FONT_AR, CENTER_ALIGN
 
-    # Baris 4: Info Dasar & Teks Hitam Besar
+    # Baris 4
     ws.cell(row=4, column=1, value="STO").font = FONT_AR_BOLD
     ws.cell(row=4, column=2, value="ODC DUM FH").font = FONT_AR_BOLD
     ws.cell(row=4, column=4, value="8 km").font = FONT_AR
@@ -157,19 +150,24 @@ def create_formatted_excel(output_path, raw_data, threshold):
     c_h4 = ws.cell(row=4, column=8, value=f'=COUNTIF(H8:H{last_row_index}, "<-22")')
     c_h4.font, c_h4.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
 
-    # Visual 200m
     c_200 = ws.cell(row=4, column=12, value="200m")
     c_200.font, c_200.alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
     ws.cell(row=4, column=13).fill = FILL_YELLOW
 
-    # Visual 250m
+    # KUNCI PERBAIKAN FINAL: Tambahan Angka 2 Besar di Kolom Q(17) dan X(24)
+    c_q4 = ws.cell(row=4, column=17, value=2)
+    c_q4.font, c_q4.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
+
+    c_x4 = ws.cell(row=4, column=24, value=2)
+    c_x4.font, c_x4.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
+
     c_250 = ws.cell(row=4, column=32, value="250m")
     c_250.font, c_250.alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
     ws.cell(row=4, column=33).fill = FILL_YELLOW
 
     ws.cell(row=4, column=34, value="kabel 48").font = FONT_AR
 
-    # Baris 5: Blok Merah Pekat
+    # Baris 5
     ws.cell(row=5, column=12).fill = FILL_RED
     ws.cell(row=5, column=32).fill = FILL_RED
     ws.cell(row=5, column=14, value="kabel 264").font = FONT_AR
@@ -184,7 +182,7 @@ def create_formatted_excel(output_path, raw_data, threshold):
     ws.cell(row=5, column=25, value="kabel 264").font = FONT_AR
     ws.cell(row=5, column=34, value="TITIK").font = FONT_AR_BOLD
 
-    # Baris 6: Tanggal & TITIK REPAIR
+    # Baris 6
     ws.cell(row=6, column=1, value="Date:").font = FONT_AR
     ws.cell(row=6, column=2, value=raw_data["date"]).font = FONT_AR
     for col in [12, 17, 24, 32]:
