@@ -10,7 +10,7 @@ RX_ONU_BASE = -16.0
 DEFAULT_ODC = "ODC DUM FH"
 DEFAULT_THRESHOLD = 7.0614781398215
 
-# === STYLING EXCEL (Sangat Aman & Presisi) ===
+# === STYLING EXCEL ===
 THIN_BORDER = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 CENTER_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
@@ -154,7 +154,6 @@ def create_formatted_excel(output_path, raw_data, threshold):
     c_200.font, c_200.alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
     ws.cell(row=4, column=13).fill = FILL_YELLOW
 
-    # KUNCI PERBAIKAN FINAL: Tambahan Angka 2 Besar di Kolom Q(17) dan X(24)
     c_q4 = ws.cell(row=4, column=17, value=2)
     c_q4.font, c_q4.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
 
@@ -208,25 +207,38 @@ def create_formatted_excel(output_path, raw_data, threshold):
         c = ws.cell(row=7, column=col, value=val)
         c.font, c.fill, c.alignment, c.border = FONT_AR_BOLD, FILL_YELLOW, CENTER_ALIGN, THIN_BORDER
 
-    # === 3. ISI DATA ===
+    # === 3. ISI DATA (DENGAN LOGIKA CONDITIONAL FORMATTING BARU) ===
     current_row = 8
     for row in raw_data["rows"]:
-        for col, key in [(2,"filename"), (3,"fiber"), (4,"wavelength"), (5,"loss_db"), (6,"length_km"), (7,"attenuation"), (9,"redaman_core"), (loss_col,"loss"), (thresh_col,"threshold")]:
+        # 3a. Kolom Basic (Tanpa kolom 8 dan 9 karena butuh custom logic)
+        for col, key in [(2,"filename"), (3,"fiber"), (4,"wavelength"), (5,"loss_db"), (6,"length_km"), (7,"attenuation"), (loss_col,"loss"), (thresh_col,"threshold")]:
             ws.cell(row=current_row, column=col, value=row[key]).font = FONT_AR
 
-        cr = ws.cell(row=current_row, column=8, value=row["estimasi_rx_onu"])
-        cr.font, cr.alignment = FONT_AR, CENTER_ALIGN
+        # 3b. Kolom 8: Estimasi RX ONU (Kuning jika < -22.0)
+        cr_rx = ws.cell(row=current_row, column=8, value=row["estimasi_rx_onu"])
+        cr_rx.font, cr_rx.alignment = FONT_AR, CENTER_ALIGN
         if row["estimasi_rx_onu"] < -22.0:
-            cr.fill = FILL_YELLOW
+            cr_rx.fill = FILL_YELLOW
 
+        # 3c. Kolom 9: Redaman / Core (Kuning jika > 6)
+        cr_redaman = ws.cell(row=current_row, column=9, value=row["redaman_core"])
+        cr_redaman.font = FONT_AR
+        if row["redaman_core"] > 6.0:
+            cr_redaman.fill = FILL_YELLOW
+
+        # 3d. Kolom 10 s/d Habis: Data Events (Kuning jika "end" ATAU >= 0.75)
         for d_idx in range(len(raw_data["distance_headers"])):
             val = row["events"][d_idx]
             ce = ws.cell(row=current_row, column=10 + d_idx, value=val)
             ce.alignment = CENTER_ALIGN
+            ce.font = FONT_AR
+
+            # Pengecekan Syarat Kuning
             if str(val).lower() == "end":
-                ce.font, ce.fill = FONT_AR, FILL_YELLOW
-            else:
-                ce.font = FONT_AR
+                ce.fill = FILL_YELLOW
+            elif isinstance(val, (int, float)) and val >= 0.75:
+                ce.fill = FILL_YELLOW
+
         current_row += 1
 
     wb.save(output_path)
