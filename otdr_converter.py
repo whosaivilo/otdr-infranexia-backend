@@ -1,3 +1,4 @@
+import sys
 import json
 from datetime import datetime
 from openpyxl import load_workbook, Workbook
@@ -9,11 +10,10 @@ RX_ONU_BASE = -16.0
 DEFAULT_ODC = "ODC DUM FH"
 DEFAULT_THRESHOLD = 7.0614781398215
 
-# === STYLING EXCEL ===
+# === STYLING EXCEL (Sangat Aman & Presisi) ===
 THIN_BORDER = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 CENTER_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
 
-# Kumpulan Font Arial
 FONT_AR = Font(name="Arial", size=11)
 FONT_AR_BOLD = Font(name="Arial", size=11, bold=True)
 FONT_AR_WHITE_BOLD = Font(name="Arial", size=11, bold=True, color="FFFFFF")
@@ -21,12 +21,10 @@ FONT_AR_22_WHITE_BOLD = Font(name="Arial", size=22, bold=True, color="FFFFFF")
 FONT_AR_22_BLACK_BOLD = Font(name="Arial", size=22, bold=True, color="000000")
 FONT_AR_20_BOLD = Font(name="Arial", size=20, bold=True)
 FONT_AR_36_BOLD = Font(name="Arial", size=36, bold=True)
-FONT_AR_RED_BOLD = Font(name="Arial", size=11, bold=True, color="FF0000")
 
-# Kumpulan Warna Latar (Disesuaikan menjadi lebih pekat)
 FILL_BLACK = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
-FILL_RED = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")       # Merah Tua
-FILL_YELLOW = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")    # Kuning Tua/Emas
+FILL_RED = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")       # Merah Tua Pekat
+FILL_YELLOW = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")    # Kuning Emas
 FILL_HEADER_GRAY = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
 
 def safe_float(val, default=0.0):
@@ -50,25 +48,32 @@ def read_input_file(filepath):
     wb = load_workbook(filepath, data_only=True)
     ws = wb.active
 
-    # 1. RADAR PENCARI BARIS HEADER
-    dist_row = 5
+    # 1. PENCARI BARIS HEADER AMAN
+    dist_row = 7 # Default
     for r in range(1, 15):
-        if str(ws.cell(row=r, column=2).value).strip().lower() == "file":
+        val = ws.cell(row=r, column=2).value
+        if val and str(val).strip().lower() == "file":
             dist_row = r
             break
 
-    date_val = ws.cell(row=dist_row - 2, column=2).value
+    date_val = ws.cell(row=max(1, dist_row - 2), column=2).value
     date_str = str(date_val).strip() if date_val else datetime.now().strftime("%m/%d/%Y %H:%M:%S")
 
-    # 2. BACA HEADER JARAK
+    # 2. BACA HEADER JARAK (Pengecekan ganda di baris dist_row atau baris 5)
     distance_headers = []
     col_idx = 8
     while True:
         val = ws.cell(row=dist_row, column=col_idx).value
-        if val is None or str(val).strip() == "": break
+        if val is None or str(val).strip() == "":
+            val = ws.cell(row=5, column=col_idx).value # Fallback
+
+        if val is None or str(val).strip() == "":
+            break
+
         try:
             distance_headers.append(float(str(val).replace(',', '.')))
-        except: pass
+        except:
+            pass
         col_idx += 1
 
     # 3. BACA DATA INTI
@@ -76,7 +81,8 @@ def read_input_file(filepath):
     row_idx = dist_row + 1
     while True:
         file_name = ws.cell(row=row_idx, column=2).value
-        if not file_name or str(file_name).strip() == "": break
+        if not file_name or str(file_name).strip() == "":
+            break
 
         events = []
         for d_idx in range(len(distance_headers)):
@@ -108,69 +114,73 @@ def create_formatted_excel(output_path, raw_data, threshold):
     ws.title = "Event Table"
 
     total_data_rows = len(raw_data["rows"])
-    last_row_index = 7 + total_data_rows
+    last_row_index = 7 + total_data_rows if total_data_rows > 0 else 8
 
-    # === 1. TULIS HEADER ATAS (Baris 1 s/d 6) ===
+    # === 1. TULIS HEADER ATAS DENGAN INJEKSI RUMUS EXCEL ===
 
-    # Baris 1: JUMLAH TITIK PUTUS (Injeksi Rumus Dinamis)
-    cell = ws.cell(row=1, column=9, value="JUMLAH TITIK PUTUS")
-    cell.font, cell.fill, cell.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
+    # Baris 1: JUMLAH TITIK PUTUS
+    c_tp = ws.cell(row=1, column=9, value="JUMLAH TITIK PUTUS")
+    c_tp.font, c_tp.fill, c_tp.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
     for d_idx in range(len(raw_data["distance_headers"])):
         col_letter = get_column_letter(10 + d_idx)
-        v_cell = ws.cell(row=1, column=10 + d_idx, value=f'=COUNTIF({col_letter}8:{col_letter}{last_row_index}, "end")')
-        v_cell.font, v_cell.alignment = FONT_AR, CENTER_ALIGN
+        vc = ws.cell(row=1, column=10 + d_idx, value=f'=COUNTIF({col_letter}8:{col_letter}{last_row_index}, "end")')
+        vc.font, vc.alignment = FONT_AR, CENTER_ALIGN
 
-    # Baris 2: JUMLAH BENDING & TIPUS (Injeksi Rumus Dinamis)
-    cell = ws.cell(row=2, column=9, value="JUMLAH BENDING & TIPUS")
-    cell.font, cell.fill, cell.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
+    # Baris 2: JUMLAH BENDING & TIPUS
+    c_jb = ws.cell(row=2, column=9, value="JUMLAH BENDING & TIPUS")
+    c_jb.font, c_jb.fill, c_jb.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
     for d_idx in range(len(raw_data["distance_headers"])):
         col_letter = get_column_letter(10 + d_idx)
-        v_cell = ws.cell(row=2, column=10 + d_idx, value=f'=COUNT({col_letter}8:{col_letter}{last_row_index})')
-        v_cell.font, v_cell.alignment = FONT_AR, CENTER_ALIGN
-
-        # Format Khusus Arial 20 Bold untuk kolom Q(17) dan X(24) di Baris 2
+        vc = ws.cell(row=2, column=10 + d_idx, value=f'=COUNT({col_letter}8:{col_letter}{last_row_index})')
+        vc.font, vc.alignment = FONT_AR, CENTER_ALIGN
         if (10 + d_idx) in [17, 24]:
-            v_cell.font = FONT_AR_20_BOLD
+            vc.font = FONT_AR_20_BOLD
 
-    # Baris 3: kabel 264 & TOTAL NILAI BENDING (Injeksi Rumus Dinamis)
+    # Baris 3: TOTAL NILAI BENDING
     ws.cell(row=3, column=4, value="kabel 264").font = FONT_AR
-    cell = ws.cell(row=3, column=9, value="TOTAL NILAI BENDING")
-    cell.font, cell.fill, cell.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
+    c_tn = ws.cell(row=3, column=9, value="TOTAL NILAI BENDING")
+    c_tn.font, c_tn.fill, c_tn.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
     for d_idx in range(len(raw_data["distance_headers"])):
         col_letter = get_column_letter(10 + d_idx)
-        # Rumus sum ditarik mulai dari baris 7 agar nilai jarak di header ikut ditambahkan
-        v_cell = ws.cell(row=3, column=10 + d_idx, value=f'=SUMIF({col_letter}7:{col_letter}{last_row_index}, "<>end")')
-        v_cell.font, v_cell.alignment = FONT_AR, CENTER_ALIGN
+        vc = ws.cell(row=3, column=10 + d_idx, value=f'=SUMIF({col_letter}7:{col_letter}{last_row_index}, "<>end")')
+        vc.font, vc.alignment = FONT_AR, CENTER_ALIGN
 
-    # Baris 4: Informasi STO, ODC, dan Teks Hitam Besar (L & AF)
+    # Baris 4: Info Dasar & Teks Hitam Besar
     ws.cell(row=4, column=1, value="STO").font = FONT_AR_BOLD
     ws.cell(row=4, column=2, value="ODC DUM FH").font = FONT_AR_BOLD
     ws.cell(row=4, column=4, value="8 km").font = FONT_AR
     ws.cell(row=4, column=5, value="Panjang kabel 9,.").font = FONT_AR
 
-    cell_tnb = ws.cell(row=4, column=7, value="TOTAL NILAI BENDING")
-    cell_tnb.font, cell_tnb.fill, cell_tnb.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
+    c_t = ws.cell(row=4, column=7, value="TOTAL NILAI BENDING")
+    c_t.font, c_t.fill, c_t.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
 
-    h4_cell = ws.cell(row=4, column=8, value=f'=COUNTIF(H8:H{last_row_index}, "<-22")')
-    h4_cell.font, h4_cell.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
+    c_h4 = ws.cell(row=4, column=8, value=f'=COUNTIF(H8:H{last_row_index}, "<-22")')
+    c_h4.font, c_h4.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
 
-    # 200m (L4) -> Hitam Bold 22, Sel kanannya (M4) Kuning Tua
-    ws.cell(row=4, column=12, value="200m").font, ws.cell(row=4, column=12).alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
+    # Visual 200m
+    c_200 = ws.cell(row=4, column=12, value="200m")
+    c_200.font, c_200.alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
     ws.cell(row=4, column=13).fill = FILL_YELLOW
 
-    # 250m (AF4) -> Hitam Bold 22, Sel kanannya (AG4) Kuning Tua
-    ws.cell(row=4, column=32, value="250m").font, ws.cell(row=4, column=32).alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
+    # Visual 250m
+    c_250 = ws.cell(row=4, column=32, value="250m")
+    c_250.font, c_250.alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
     ws.cell(row=4, column=33).fill = FILL_YELLOW
 
     ws.cell(row=4, column=34, value="kabel 48").font = FONT_AR
 
-    # Baris 5: Warna Merah di Bawah (L5, AF5) dan Teks 150m (Q5, X5)
+    # Baris 5: Blok Merah Pekat
     ws.cell(row=5, column=12).fill = FILL_RED
     ws.cell(row=5, column=32).fill = FILL_RED
     ws.cell(row=5, column=14, value="kabel 264").font = FONT_AR
-    ws.cell(row=5, column=17, value="150m").font, ws.cell(row=5, column=17).fill, ws.cell(row=5, column=17).alignment = FONT_AR_22_WHITE_BOLD, FILL_RED, CENTER_ALIGN
+
+    c_150_1 = ws.cell(row=5, column=17, value="150m")
+    c_150_1.font, c_150_1.fill, c_150_1.alignment = FONT_AR_22_WHITE_BOLD, FILL_RED, CENTER_ALIGN
     ws.cell(row=5, column=18, value="kabel 264").font = FONT_AR
-    ws.cell(row=5, column=24, value="150m").font, ws.cell(row=5, column=24).fill, ws.cell(row=5, column=24).alignment = FONT_AR_22_WHITE_BOLD, FILL_RED, CENTER_ALIGN
+
+    c_150_2 = ws.cell(row=5, column=24, value="150m")
+    c_150_2.font, c_150_2.fill, c_150_2.alignment = FONT_AR_22_WHITE_BOLD, FILL_RED, CENTER_ALIGN
+
     ws.cell(row=5, column=25, value="kabel 264").font = FONT_AR
     ws.cell(row=5, column=34, value="TITIK").font = FONT_AR_BOLD
 
@@ -181,56 +191,44 @@ def create_formatted_excel(output_path, raw_data, threshold):
         ws.cell(row=6, column=col, value="TITIK REPAIR").font = FONT_AR_BOLD
     ws.cell(row=6, column=34, value="ODC").font = FONT_AR_BOLD
 
-    # === 2. HEADER TABEL UTAMA (Baris 7) ===
-    headers_col = [(2,"File"), (3,"Fiber"), (4,"Wavelength"), (5,"Loss, dB"), (6,"Length, km"), (7,"Attenuation")]
-    for col, val in headers_col:
-        cell = ws.cell(row=7, column=col, value=val)
-        cell.font, cell.alignment, cell.border = FONT_AR_BOLD, CENTER_ALIGN, THIN_BORDER
+    # === 2. HEADER TABEL UTAMA ===
+    for col, val in [(2,"File"), (3,"Fiber"), (4,"Wavelength"), (5,"Loss, dB"), (6,"Length, km"), (7,"Attenuation")]:
+        c = ws.cell(row=7, column=col, value=val)
+        c.font, c.alignment, c.border = FONT_AR_BOLD, CENTER_ALIGN, THIN_BORDER
 
     for col, val in [(8, "ESTIMASI RX ONU"), (9, "REDAMAN / CORE")]:
-        cell = ws.cell(row=7, column=col, value=val)
-        cell.font, cell.fill, cell.alignment, cell.border = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN, THIN_BORDER
+        c = ws.cell(row=7, column=col, value=val)
+        c.font, c.fill, c.alignment, c.border = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN, THIN_BORDER
 
     for d_idx, dist in enumerate(raw_data["distance_headers"]):
-        cell = ws.cell(row=7, column=10 + d_idx, value=dist)
-        cell.font, cell.alignment, cell.border = FONT_AR_BOLD, CENTER_ALIGN, THIN_BORDER
+        c = ws.cell(row=7, column=10 + d_idx, value=dist)
+        c.font, c.alignment, c.border = FONT_AR_BOLD, CENTER_ALIGN, THIN_BORDER
 
     loss_col = 10 + len(raw_data["distance_headers"])
     thresh_col = loss_col + 1
     for col, val in [(loss_col, "Loss"), (thresh_col, "Threshold")]:
-        cell = ws.cell(row=7, column=col, value=val)
-        cell.font, cell.fill, cell.alignment, cell.border = FONT_AR_BOLD, FILL_YELLOW, CENTER_ALIGN, THIN_BORDER
+        c = ws.cell(row=7, column=col, value=val)
+        c.font, c.fill, c.alignment, c.border = FONT_AR_BOLD, FILL_YELLOW, CENTER_ALIGN, THIN_BORDER
 
-    # === 3. ISI DATA (Baris 8 ke Bawah) ===
+    # === 3. ISI DATA ===
     current_row = 8
     for row in raw_data["rows"]:
-        ws.cell(row=current_row, column=2, value=row["filename"]).font = FONT_AR
-        ws.cell(row=current_row, column=3, value=row["fiber"]).font = FONT_AR
-        ws.cell(row=current_row, column=4, value=row["wavelength"]).font = FONT_AR
-        ws.cell(row=current_row, column=5, value=row["loss_db"]).font = FONT_AR
-        ws.cell(row=current_row, column=6, value=row["length_km"]).font = FONT_AR
-        ws.cell(row=current_row, column=7, value=row["attenuation"]).font = FONT_AR
+        for col, key in [(2,"filename"), (3,"fiber"), (4,"wavelength"), (5,"loss_db"), (6,"length_km"), (7,"attenuation"), (9,"redaman_core"), (loss_col,"loss"), (thresh_col,"threshold")]:
+            ws.cell(row=current_row, column=col, value=row[key]).font = FONT_AR
 
-        cell_rx = ws.cell(row=current_row, column=8, value=row["estimasi_rx_onu"])
-        cell_rx.alignment, cell_rx.font = CENTER_ALIGN, FONT_AR
+        cr = ws.cell(row=current_row, column=8, value=row["estimasi_rx_onu"])
+        cr.font, cr.alignment = FONT_AR, CENTER_ALIGN
         if row["estimasi_rx_onu"] < -22.0:
-            cell_rx.fill = FILL_YELLOW
-
-        ws.cell(row=current_row, column=9, value=row["redaman_core"]).font = FONT_AR
+            cr.fill = FILL_YELLOW
 
         for d_idx in range(len(raw_data["distance_headers"])):
             val = row["events"][d_idx]
-            cell = ws.cell(row=current_row, column=10 + d_idx, value=val)
-            cell.alignment = CENTER_ALIGN
-
+            ce = ws.cell(row=current_row, column=10 + d_idx, value=val)
+            ce.alignment = CENTER_ALIGN
             if str(val).lower() == "end":
-                cell.font, cell.fill = FONT_AR, FILL_YELLOW
+                ce.font, ce.fill = FONT_AR, FILL_YELLOW
             else:
-                cell.font = FONT_AR
-
-        ws.cell(row=current_row, column=loss_col, value=row["loss"]).font = FONT_AR
-        ws.cell(row=current_row, column=thresh_col, value=threshold).font = FONT_AR
-
+                ce.font = FONT_AR
         current_row += 1
 
     wb.save(output_path)
