@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import sys
 import json
 import re
@@ -237,13 +235,21 @@ def create_formatted_excel(output_path, raw_data, summary, threshold):
     wb.save(output_path)
     wb.close()
 
+# ================== PERUBAHAN DI SINI ==================
 def process_file(filepath, output_path, odc_name=None, threshold=None):
     raw_data = read_input_file(filepath)
     summary = compute_summary(raw_data["distance_headers"], raw_data["rows"])
     thr = threshold if threshold is not None else DEFAULT_THRESHOLD
     for row in raw_data["rows"]: row["threshold"] = thr
     create_formatted_excel(output_path, raw_data, summary, thr)
-    return {"odc": odc_name if odc_name else DEFAULT_ODC, "date": raw_data["date"]}
+
+    # KUNCI PERBAIKAN: Kembalikan data 'rows' ke Laravel agar React bisa menggambar tabel
+    return {
+        "odc": odc_name if odc_name else DEFAULT_ODC,
+        "date": raw_data["date"],
+        "rows": raw_data["rows"]
+    }
+# ======================================================
 
 if __name__ == "__main__":
     if len(sys.argv) < 3: sys.exit(1)
