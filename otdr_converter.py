@@ -17,15 +17,12 @@ CENTER_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
 FONT_AR = Font(name="Arial", size=11)
 FONT_AR_BOLD = Font(name="Arial", size=11, bold=True)
 FONT_AR_WHITE_BOLD = Font(name="Arial", size=11, bold=True, color="FFFFFF")
-FONT_AR_22_WHITE_BOLD = Font(name="Arial", size=22, bold=True, color="FFFFFF")
-FONT_AR_22_BLACK_BOLD = Font(name="Arial", size=22, bold=True, color="000000")
 FONT_AR_20_BOLD = Font(name="Arial", size=20, bold=True)
 FONT_AR_36_BOLD = Font(name="Arial", size=36, bold=True)
 
 FILL_BLACK = PatternFill(start_color="000000", end_color="000000", fill_type="solid")
 FILL_RED = PatternFill(start_color="C00000", end_color="C00000", fill_type="solid")
 FILL_YELLOW = PatternFill(start_color="FFC000", end_color="FFC000", fill_type="solid")
-FILL_HEADER_GRAY = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
 
 def safe_float(val, default=0.0):
     if val is None: return default
@@ -68,10 +65,8 @@ def read_input_file(filepath):
         if val is None or str(val).strip() == "":
             break
 
-        try:
-            distance_headers.append(float(str(val).replace(',', '.')))
-        except:
-            pass
+        try: distance_headers.append(float(str(val).replace(',', '.')))
+        except: pass
         col_idx += 1
 
     rows_data = []
@@ -113,6 +108,15 @@ def create_formatted_excel(output_path, raw_data, threshold):
     total_data_rows = len(raw_data["rows"])
     last_row_index = 7 + total_data_rows if total_data_rows > 0 else 8
 
+    # === MENGHITUNG TOTAL ANOMALI (KUNING) PER KOLOM JARAK ===
+    anomaly_counts = [0] * len(raw_data["distance_headers"])
+    for row in raw_data["rows"]:
+        for d_idx in range(len(raw_data["distance_headers"])):
+            val = row["events"][d_idx]
+            # Syarat kuning: "end" atau angka >= 0.75
+            if str(val).lower() == "end" or (isinstance(val, (int, float)) and val >= 0.75):
+                anomaly_counts[d_idx] += 1
+
     # === 1. TULIS HEADER ATAS DENGAN INJEKSI RUMUS EXCEL ===
     c_tp = ws.cell(row=1, column=9, value="JUMLAH TITIK PUTUS")
     c_tp.font, c_tp.fill, c_tp.alignment = FONT_AR_WHITE_BOLD, FILL_BLACK, CENTER_ALIGN
@@ -138,7 +142,7 @@ def create_formatted_excel(output_path, raw_data, threshold):
         vc = ws.cell(row=3, column=10 + d_idx, value=f'=SUMIF({col_letter}7:{col_letter}{last_row_index}, "<>end")')
         vc.font, vc.alignment = FONT_AR, CENTER_ALIGN
 
-    # Baris 4
+    # Baris 4 (Kolom L/12 ke kanan telah dihapus)
     ws.cell(row=4, column=1, value="STO").font = FONT_AR_BOLD
     ws.cell(row=4, column=2, value="ODC DUM FH").font = FONT_AR_BOLD
     ws.cell(row=4, column=4, value="8 km").font = FONT_AR
@@ -150,43 +154,18 @@ def create_formatted_excel(output_path, raw_data, threshold):
     c_h4 = ws.cell(row=4, column=8, value=f'=COUNTIF(H8:H{last_row_index}, "<-22")')
     c_h4.font, c_h4.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
 
-    c_200 = ws.cell(row=4, column=12, value="200m")
-    c_200.font, c_200.alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
-    ws.cell(row=4, column=13).fill = FILL_YELLOW
+    # Baris 5 dikosongkan (Sesuai request menghapus bagian kanannya)
 
-    c_q4 = ws.cell(row=4, column=17, value=2)
-    c_q4.font, c_q4.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
-
-    c_x4 = ws.cell(row=4, column=24, value=2)
-    c_x4.font, c_x4.alignment = FONT_AR_36_BOLD, CENTER_ALIGN
-
-    c_250 = ws.cell(row=4, column=32, value="250m")
-    c_250.font, c_250.alignment = FONT_AR_22_BLACK_BOLD, CENTER_ALIGN
-    ws.cell(row=4, column=33).fill = FILL_YELLOW
-
-    ws.cell(row=4, column=34, value="kabel 48").font = FONT_AR
-
-    # Baris 5
-    ws.cell(row=5, column=12).fill = FILL_RED
-    ws.cell(row=5, column=32).fill = FILL_RED
-    ws.cell(row=5, column=14, value="kabel 264").font = FONT_AR
-
-    c_150_1 = ws.cell(row=5, column=17, value="150m")
-    c_150_1.font, c_150_1.fill, c_150_1.alignment = FONT_AR_22_WHITE_BOLD, FILL_RED, CENTER_ALIGN
-    ws.cell(row=5, column=18, value="kabel 264").font = FONT_AR
-
-    c_150_2 = ws.cell(row=5, column=24, value="150m")
-    c_150_2.font, c_150_2.fill, c_150_2.alignment = FONT_AR_22_WHITE_BOLD, FILL_RED, CENTER_ALIGN
-
-    ws.cell(row=5, column=25, value="kabel 264").font = FONT_AR
-    ws.cell(row=5, column=34, value="TITIK").font = FONT_AR_BOLD
-
-    # Baris 6
+    # Baris 6 (Menulis Date dan Logika Dinamis "Asumsi Evaluasi Titik Putus")
     ws.cell(row=6, column=1, value="Date:").font = FONT_AR
     ws.cell(row=6, column=2, value=raw_data["date"]).font = FONT_AR
-    for col in [12, 17, 24, 32]:
-        ws.cell(row=6, column=col, value="TITIK REPAIR").font = FONT_AR_BOLD
-    ws.cell(row=6, column=34, value="ODC").font = FONT_AR_BOLD
+
+    # Looping untuk mengecek apakah kolom memiliki lebih dari 5 anomali kuning
+    for d_idx in range(len(raw_data["distance_headers"])):
+        if anomaly_counts[d_idx] > 5:
+            ce = ws.cell(row=6, column=10 + d_idx, value="Asumsi Evaluasi Titik Putus")
+            ce.font = FONT_AR_BOLD
+            ce.alignment = CENTER_ALIGN
 
     # === 2. HEADER TABEL UTAMA ===
     for col, val in [(2,"File"), (3,"Fiber"), (4,"Wavelength"), (5,"Loss, dB"), (6,"Length, km"), (7,"Attenuation")]:
@@ -207,10 +186,10 @@ def create_formatted_excel(output_path, raw_data, threshold):
         c = ws.cell(row=7, column=col, value=val)
         c.font, c.fill, c.alignment, c.border = FONT_AR_BOLD, FILL_YELLOW, CENTER_ALIGN, THIN_BORDER
 
-    # === 3. ISI DATA (DENGAN LOGIKA CONDITIONAL FORMATTING BARU) ===
+    # === 3. ISI DATA (DENGAN LOGIKA CONDITIONAL FORMATTING) ===
     current_row = 8
     for row in raw_data["rows"]:
-        # 3a. Kolom Basic (Tanpa kolom 8 dan 9 karena butuh custom logic)
+        # 3a. Kolom Basic
         for col, key in [(2,"filename"), (3,"fiber"), (4,"wavelength"), (5,"loss_db"), (6,"length_km"), (7,"attenuation"), (loss_col,"loss"), (thresh_col,"threshold")]:
             ws.cell(row=current_row, column=col, value=row[key]).font = FONT_AR
 
@@ -233,7 +212,6 @@ def create_formatted_excel(output_path, raw_data, threshold):
             ce.alignment = CENTER_ALIGN
             ce.font = FONT_AR
 
-            # Pengecekan Syarat Kuning
             if str(val).lower() == "end":
                 ce.fill = FILL_YELLOW
             elif isinstance(val, (int, float)) and val >= 0.75:
