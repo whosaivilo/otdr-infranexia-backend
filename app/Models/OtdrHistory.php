@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OtdrHistory extends Model
 {
@@ -12,6 +13,7 @@ class OtdrHistory extends Model
     // Properti ini sangat penting agar Laravel mengizinkan
     // data dari Python disimpan secara otomatis (Mass Assignment)
     protected $fillable = [
+        'file_upload_id',
         'filename',
         'odc',
         'jumlah_titik_putus',
@@ -29,6 +31,7 @@ class OtdrHistory extends Model
     ];
 
     protected $casts = [
+        'file_upload_id' => 'integer',
         'jumlah_titik_putus' => 'integer',
         'jumlah_bending' => 'integer',
         'total_nilai_bending' => 'float',
@@ -40,4 +43,9 @@ class OtdrHistory extends Model
         'length_km' => 'float',
         'attenuation' => 'float',
     ];
+
+    public function fileUpload(): BelongsTo
+    {
+        return $this->belongsTo(FileUpload::class, 'file_upload_id');
+    }
 }

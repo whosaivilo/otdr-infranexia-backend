@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\FileUpload;
 use App\Models\OtdrHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Process;
@@ -59,11 +60,21 @@ class OtdrController extends Controller
             ], 500);
         }
 
-        // 6. Simpan hasil kalkulasi ke database MySQL
+        // 6. Simpan induk FileUpload dan hasil kalkulasi per-core ke database
+        $fileUpload = FileUpload::create([
+            'user_id'           => $request->user()?->id,
+            'original_filename' => $request->file('file')->getClientOriginalName(),
+            'raw_file_path'     => $path,
+            'output_file_path'  => $outRelativePath,
+            'odc'               => $output['odc'] ?? null,
+            'measurement_date'  => $output['date'] ?? null,
+        ]);
+
         // Hanya simpan data per baris (rows), bukan summary
         if (isset($output['rows']) && is_array($output['rows'])) {
             foreach ($output['rows'] as $row) {
                 OtdrHistory::create([
+                    'file_upload_id'      => $fileUpload->id,
                     'filename'            => $row['filename'],
                     'odc'                 => $output['odc'] ?? ($row['odc'] ?? null),
                     'jumlah_titik_putus'  => $row['jumlah_titik_putus'] ?? 0,
